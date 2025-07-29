@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 namespace MatrixLib
 {
     public static class Algorithms
@@ -13,11 +14,13 @@ namespace MatrixLib
             {
                 RealMatrix x = r_Matrix.SubMatrix(c, r_Matrix.Height, c, c);
 
+                //TODO: Fix zero bug
                 double alpha = -Math.Sign(x[1, 1]) * x.Norm;
 
                 RealMatrix v = x - RealMatrix.Elementary(r_Matrix.Height - c + 1, 1).Modify((a, b) => a * b, alpha);
 
-                v = v.Modify((a, b) => a / b, v.Norm);
+                if(v.Norm != 0)
+                    v = v.Modify((a, b) => a / b, v.Norm);
 
                 RealMatrix vT = v.Transpose();
 
@@ -37,7 +40,203 @@ namespace MatrixLib
 
             return (Q_Matrix, r_Matrix);
         }
-        
+
+        public static (RealMatrix,RealMatrix) Givens(RealMatrix t_Matrix)
+        {
+
+            double eps = Math.Pow(10, -10);
+
+            RealMatrix r_Matrix = ~t_Matrix;
+            RealMatrix Q_Matrix = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height);
+
+            for (int c = 1; c < r_Matrix.Width; ++c)
+            {
+                for(int r = c+1; r <= r_Matrix.Height; ++r)
+                {
+                    if (Math.Abs(r_Matrix[r,c]) > eps)
+                    {
+                        RealMatrix g_Matrix = RealMatrix.Eye(r_Matrix.Height, r_Matrix.Height);
+
+                        var re = Math.Sqrt(Math.Pow(r_Matrix[c,c],2) + Math.Pow(r_Matrix[r,c],2));
+                        var ce = r_Matrix[c, c] / re;
+                        var se = -r_Matrix[r, c] / re;
+
+                        g_Matrix[c, c] = ce;
+                        g_Matrix[r, r] = ce;
+                        g_Matrix[r, c] = se;
+                        g_Matrix[c, r] = -se;
+
+                        r_Matrix = g_Matrix*r_Matrix;
+
+                        Q_Matrix *= g_Matrix.Transpose();
+                    }
+                }
+
+            }
+            return (Q_Matrix, r_Matrix);
+        }
+
+        public static RealMatrix Hessenberg(RealMatrix t_Matrix)
+        {
+            // TODO: Check square matrix
+
+            RealMatrix r_Matrix =~ t_Matrix;
+
+            for (int s = 1; s <= t_Matrix.Height - 2; ++s)
+            {
+
+                RealMatrix t_Column = t_Matrix.SubMatrix(1+s, t_Matrix.Height, s, s);
+
+                int sign = 1;
+
+                if (t_Column[1, 1] <= 0)
+                    sign = -1;
+
+                RealMatrix t_Projector = RealMatrix.Elementary(t_Column.Height, 1);
+                if(t_Column.Norm != 0)
+                    t_Projector =  t_Projector.Modify((a, b) => (a * b), t_Column.Norm * sign);
+
+                t_Projector += t_Column;
+
+                t_Projector.Modify((a, b) => a / b, t_Projector.Norm);
+
+                RealMatrix t_Householder = RealMatrix.Eye(t_Column.Height, t_Column.Height);
+                t_Householder -= (t_Projector * t_Projector.Transpose()).Modify((a, b) => (a * b), 2 / (t_Projector.Norm * t_Projector.Norm));
+
+                RealMatrix Q_Matrix = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Width).Insert(1 + s, 1 + s, t_Householder);
+
+                t_Matrix = Q_Matrix * t_Matrix * Q_Matrix.Transpose();
+            }
+
+            t_Matrix = t_Matrix.Modify((a, b) => (double)Math.Round((decimal)a, (int)b), Precision);
+
+            return t_Matrix;
+        }
+
+        public static RealMatrix Triangular(RealMatrix t_Matrix)
+        {
+            //TODO: Implement GIVENS ROTATIONS to save MAJOR COMPUTATIONAL power
+            //TODO: FIX PRECISION BUG
+
+            RealMatrix o_Matrix = ~t_Matrix;
+
+            double eps = Math.Pow(10, -10);
+
+            int iteration = 0;
+            double error = 0;
+            double lasterror;
+
+            bool repeat = true;
+
+            while(repeat)
+            {
+                ++iteration;
+                lasterror = error;
+                error = 0;
+                repeat = false;
+                for(int i = 1; i < t_Matrix.Width; ++i)
+                {
+                    error += Math.Abs(t_Matrix[i + 1, i]);
+                    if (Math.Abs(t_Matrix[i+1, i]) > eps)
+                    {
+                        repeat = true;
+                    }      
+                }
+                
+                if(iteration > 3 && (lasterror-error) <= 0)
+                {
+                    Console.WriteLine("COMPLEX EIGENVALUES PLACEHOLDER");
+                    return o_Matrix;
+                }    
+
+                var (Q, R) = Givens(t_Matrix);
+                t_Matrix = R * Q;
+            }
+            return t_Matrix;
+        }
+
+      
+        public static List<double> Eigenvalues (RealMatrix t_Matrix)
+        {
+            RealMatrix h_Matrix = Hessenberg(t_Matrix);
+            RealMatrix tri_Matrix = Triangular(h_Matrix);
+
+            var eigs = new List<double>();
+
+            for (int i = 1; i <= tri_Matrix.Width; ++i)
+            {
+                eigs.Add(Math.Round(tri_Matrix[i, i],Precision));
+            }
+
+            return eigs;
+        }
+
+        public static RealMatrix BackwardTriangle(RealMatrix t_Matrix)
+        {
+            //TODO: squaaaaaare
+
+            RealMatrix r_Matrix = RealMatrix.Zeros(t_Matrix.Height, t_Matrix.Width);
+
+            for (int c = 1; c <= r_Matrix.Width; ++c)
+            {
+                for (int r = r_Matrix.Height; r >= 1; --r)
+                {
+                    double Kronecker = (c == r ? 1 : 0);
+
+                    double res = Kronecker;
+
+                    for (int o = r + 1; o <= r_Matrix.Height; ++o)
+                    {
+                        res -= t_Matrix[r, o] * r_Matrix[o, c];
+                    }
+
+                    r_Matrix[r, c] = res / t_Matrix[r,r];
+                }
+            }
+
+            return r_Matrix;
+        }
+
+        public static RealMatrix ForwardTriangle(RealMatrix t_Matrix)
+        {
+            //TODO: squaaaaaare
+
+            RealMatrix r_Matrix = RealMatrix.Zeros(t_Matrix.Height, t_Matrix.Width);
+
+            for (int c = 1; c <= r_Matrix.Width; ++c)
+            {
+                for (int r = 1; r <= r_Matrix.Height; ++r)
+                {
+                    double Kronecker = (c == r ? 1 : 0);
+
+                    double res = Kronecker;
+
+                    for (int o = 1; o <= r - 1; ++o)
+                    {
+                        res -= t_Matrix[r, o] * r_Matrix[o, c];
+                    }
+
+                    r_Matrix[r, c] = res / t_Matrix[r, r];
+                }
+            }
+
+            return r_Matrix;
+        }
+
+        public static RealMatrix Inverse(RealMatrix t_Matrix)
+        {
+            var (L, U, P) = Algorithms.LU(t_Matrix);
+
+            var r_Matrix = BackwardTriangle(U) * ForwardTriangle(L) * P;
+
+            return r_Matrix;
+        }
+
+        public static RealMatrix LinSys(RealMatrix t_Matrix, RealMatrix b_Matrix)
+        {
+            return Inverse(t_Matrix) * b_Matrix;
+        }
+
         // TODO: Fix precision
         internal static (RealMatrix, RealMatrix, RealMatrix, int) InternalLUP(RealMatrix t_Matrix)
         {
@@ -114,7 +313,7 @@ namespace MatrixLib
 
         public static (RealMatrix, RealMatrix, RealMatrix) LU(RealMatrix t_Matrix)
         {
-            var (L,U,P,S) = InternalLUP(t_Matrix);
+            var (L,U,P,_) = InternalLUP(t_Matrix);
             return (L,U,P);
         }
 
