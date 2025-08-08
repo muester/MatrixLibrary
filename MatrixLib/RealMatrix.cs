@@ -1,12 +1,6 @@
-﻿/*
- * Z technického hlediska, ve finálním produktu by (mimo jiné) neměla chybět: vhodná implementace I/O, především v nějakém vhodném souborovém formátu,
-reprezentace obecné matice reálných čísel, základních maticových operací vč. determinantu, výpočtu inverzu, dále LU a QR rozklad matice, řešení SLR udáno maticí,
-výpočet vlastních čísel, a to celé včetně vhodného ošetření vstupů a povolených operací. Jelikož pracujeme s reálnými čísly a je nutnost některé metody dělat iteračně,
-např. výpočet vlastních čísel, (viz Abel-Ruffiniova věta), bude kladen zájem o to, aby algoritmy byly dostatečně rychlé a zároveň stabilní.
-*/
-
-
-using System;
+﻿using System;
+using System.IO;
+using System.Text.RegularExpressions;
 
 namespace MatrixLib
 {
@@ -28,6 +22,7 @@ namespace MatrixLib
         {
             return Zeros(t_Length, t_Length);
         }
+
         public static RealMatrix Zeros(int t_Height, int t_Width)
         {
             RealMatrix r_Matrix = new RealMatrix(t_Height, t_Width);
@@ -43,7 +38,7 @@ namespace MatrixLib
         {
             RealMatrix r_Matrix = new RealMatrix(t_Height, t_Width);
 
-            for (int d = 1; d <= r_Matrix.Height && d < r_Matrix.Width; ++d)
+            for (int d = 1; d <= r_Matrix.Height && d <= r_Matrix.Width; ++d)
             {
                 r_Matrix[d, d] = 1;
             }
@@ -77,6 +72,111 @@ namespace MatrixLib
             return r_Matrix;
         }
         
+        public static RealMatrix[] From(string t_File)
+        {
+            if (t_File.Length < 5 || t_File.Substring(t_File.Length - 4) != ".mat")
+            {
+                throw new ArgumentException("Error: Unsupported file name! (check file extension?)");
+            }
+
+            if (!File.Exists(t_File))
+            {
+                throw new FileNotFoundException("Error: File not found!");
+            }
+
+            using (StreamReader fileData = new StreamReader(t_File))
+            {
+
+                string? metadata = fileData.ReadLine();
+
+                if (metadata == null)
+                {
+                    throw new FormatException("Error: Incorrect matrix file format!");
+                }
+
+                uint matrices = uint.Parse(metadata.Trim());
+
+                RealMatrix[] r_Matrices = new RealMatrix[matrices];
+
+                fileData.ReadLine();
+
+                string? header = fileData.ReadLine();
+
+                for (int m = 0; header != null; ++m)
+                {
+                    string[] dimensions = header.Split(' ');
+
+                    if (dimensions.Length != 2)
+                    {
+                        throw new RankException("Error: Incorrect amount of dimensions provided!");
+                    }
+
+                    (int height, int width) = (Int32.Parse(dimensions[0]), Int32.Parse(dimensions[1]));
+                    RealMatrix r_Matrix = Zeros(height, width);
+
+                    for (int r = 1; r <= height; ++r)
+                    {
+                        string? row = fileData.ReadLine();
+
+                        if (row == null)
+                        {
+                            throw new EndOfStreamException("Error: Expected matrix data not found!");
+                        }
+
+                        string[] entries = Regex.Replace(row.Trim(), @"\s+", " ").Split(" ");
+
+                        for (int c = 1; c <= width; ++c)
+                        {
+                            r_Matrix[r, c] = Double.Parse(entries[c - 1]);
+                        }
+                    }
+
+                    r_Matrices[m] = r_Matrix;
+
+                    fileData.ReadLine();
+
+                    header = fileData.ReadLine();
+                }
+                return r_Matrices;
+            }
+        }
+
+        // Saving matrices to a file
+
+        public static void SaveMatricesTo(RealMatrix t_Matrix, string t_File)
+        {
+            SaveMatricesTo([t_Matrix], t_File);
+        }
+
+        public static void SaveMatricesTo(RealMatrix[] t_Matrices, string t_File)
+        {
+            if (t_File.Length < 5 || t_File.Substring(t_File.Length - 4) != ".mat")
+            {
+                throw new ArgumentException("Error: Unsupported file name! (check file extension?)");
+            }
+
+            using (StreamWriter fileData = File.CreateText(t_File))
+            {
+                fileData.WriteLine(t_Matrices.Length);
+                for (int m = 0; m < t_Matrices.Length; ++m)
+                {
+
+                    fileData.WriteLine();
+                    fileData.WriteLine($"{t_Matrices[m].Height} {t_Matrices[m].Width}");
+
+                    for (int r = 1; r <= t_Matrices[m].Height; ++r)
+                    {
+                        for (int c = 1; c <= t_Matrices[m].Width; ++c)
+                        {
+                            fileData.Write(t_Matrices[m][r, c] + " ");
+                        }
+                        fileData.Write("\n");
+
+                    }
+                }
+            }
+        }
+
         // Indexers and operator overloads
         
         public double this[int t_Row, int t_Column]
@@ -85,7 +185,7 @@ namespace MatrixLib
             {
                 if (t_Row > Height  || t_Column > Width)
                 {
-                    throw new IndexOutOfRangeException("Error: Non-existing element accessed!");
+                    throw new IndexOutOfRangeException("Error: Non-existent element accessed!");
                 }
                 return m_Elements[t_Row -1, t_Column -1];
             }
@@ -93,7 +193,7 @@ namespace MatrixLib
             {
                 if (t_Row > Height || t_Column > Width)
                 {
-                    throw new IndexOutOfRangeException("Error: Non-existing element accessed!");
+                    throw new IndexOutOfRangeException("Error: Non-existent element accessed!");
                 }
                 m_Elements[t_Row -1, t_Column -1] = value;
             }
@@ -188,13 +288,50 @@ namespace MatrixLib
             return ElementwiseOperation((a, b) => a - b, t_LeftMatrix, t_RightMatrix);
         }
 
+        public static bool operator ==(RealMatrix t_LeftMatrix, RealMatrix t_RightMatrix)
+        {
+            if(t_LeftMatrix.Height != t_RightMatrix.Height || t_LeftMatrix.Width != t_RightMatrix.Width)
+            {
+                return false;
+            }
+
+            for (int r = 1; r <= t_LeftMatrix.Height; ++r)
+            {
+                for (int c = 1; c <= t_LeftMatrix.Width; ++c)
+                {
+                    if (t_LeftMatrix[r,c] != t_RightMatrix[r,c])
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        public static bool operator !=(RealMatrix t_LeftMatrix, RealMatrix t_RightMatrix)
+        {
+            return !(t_LeftMatrix == t_RightMatrix);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is null || GetType() != obj.GetType())
+                return false;
+            return this == (RealMatrix) obj;
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
+
         // Extracting submatrices
 
         public RealMatrix Column(int t_Column)
         {
-            if(t_Column > Width)
+            if(0 > t_Column || t_Column > Width)
             {
-                throw new IndexOutOfRangeException("");
+                throw new IndexOutOfRangeException("Error: Non-existent column accessed!");
             }
              
             RealMatrix r_Matrix = Zeros(Height, 1);
@@ -206,91 +343,105 @@ namespace MatrixLib
 
             return r_Matrix;
         }
+
         public RealMatrix Row(int t_Row)
         {
-            if (t_Row > Height)
+            if (0 > t_Row || t_Row > Height)
             {
-                throw new IndexOutOfRangeException("");
+                throw new IndexOutOfRangeException("Error: Non-existent row accessed!");
             }
 
-            RealMatrix r_Matrix = RealMatrix.Zeros(1, Width);
+            RealMatrix r_Matrix = Zeros(1, Width);
 
             for (int r = 1; r <= Width; ++r)
             {
-                r_Matrix[1, r] = this[t_Row, 1];
+                r_Matrix[1, r] = this[t_Row, r];
             }
 
             return r_Matrix;
         }
+
         public RealMatrix SubMatrix(int t_RowBegin, int t_RowEnd, int t_ColumnBegin, int t_ColumnEnd)
         {
-            //TODO: Check for logical boundary errors
-            if(t_RowEnd > Height || t_ColumnEnd > Width)
+
+            bool correctHeight = (0 < t_RowBegin) && (t_RowBegin <= t_RowEnd) && (t_RowEnd <= Height);
+            bool correctWidth = (0 < t_ColumnBegin) && (t_ColumnBegin <= t_ColumnEnd) && (t_ColumnEnd <= Width);
+
+            if (!(correctHeight && correctWidth)) 
             {
-                throw new IndexOutOfRangeException("");
+                throw new IndexOutOfRangeException("Error: Non-existent elements requested!");
             }
 
             int t_Height = (t_RowEnd - t_RowBegin) + 1;
             int t_Width = (t_ColumnEnd - t_ColumnBegin) + 1;
 
-            RealMatrix r_Matrix = RealMatrix.Zeros(t_Height,t_Width);
+            RealMatrix r_Matrix = Zeros(t_Height,t_Width);
 
             for (int r = t_RowBegin; r <= t_RowEnd; ++r)
             {
                 for(int c = t_ColumnBegin; c <= t_ColumnEnd; ++c)
                 {
-                    r_Matrix[(r + 1) - t_RowBegin, (c + 1) - t_ColumnBegin] = this[r, c];
+                    r_Matrix[1 + (r - t_RowBegin), 1 + (c - t_ColumnBegin)] = this[r, c];
                 }
             }
 
             return r_Matrix;
         }
+
         public RealMatrix Insert(int t_Row, int t_Column, RealMatrix t_InsertedMatrix)
         {
             int RequiredWidth = (t_InsertedMatrix.Width + t_Column) - 1;
             int RequiredHeight = (t_InsertedMatrix.Height + t_Row) - 1;
 
-            if (RequiredWidth > this.Width || RequiredHeight > this.Height)
+            if (RequiredWidth > Width || RequiredHeight > Height)
             {
-                throw new IndexOutOfRangeException("");
+                throw new RankException("Error: Matrix dimensions too large to be inserted at the requested position!");
             }
 
             RealMatrix r_Matrix = ~this;
 
-            for (int r = 0; r < t_InsertedMatrix.Height; ++r)
+            for (int r = 1; r <= t_InsertedMatrix.Height; ++r)
             {
-                for (int c = 0; c < t_InsertedMatrix.Width; ++c)
+                for (int c = 1; c <= t_InsertedMatrix.Width; ++c)
                 {
-                    r_Matrix[r + t_Row, c + t_Column] = t_InsertedMatrix[r+1, c+1];
+                    r_Matrix[(r + t_Row) - 1, (c + t_Column) - 1] = t_InsertedMatrix[r, c];
                 }
             }
 
             return r_Matrix;
         }
-        
+
         public RealMatrix Modify(Operation t_operation, double t_value)
         {
-            RealMatrix r_Matrix = RealMatrix.Zeros(this.Height, this.Width);
+            RealMatrix r_Matrix = Zeros(Height, Width);
 
-            for(int r = 0; r < Height; ++r)
+            for(int r = 1; r <= Height; ++r)
             {
-               for(int c = 0; c < Width; ++c)
-                {
-                    r_Matrix[r + 1, c + 1] = t_operation(this[r + 1, c + 1], t_value);
-                }
+               for(int c = 1; c <= Width; ++c)
+               {
+                    r_Matrix[r, c] = t_operation(this[r, c], t_value);
+               }
             }
 
             return r_Matrix;
         }
+
+        public RealMatrix Round(int Precision)
+        {
+            if (Precision == 16)
+                return this;
+            return Modify((a, b) => (double)Math.Round((double)a, (int)b), Precision);
+        }
+
         public RealMatrix Transpose()
         {
-            RealMatrix r_TransposedMatrix = new RealMatrix(Width, Height);
+            RealMatrix r_TransposedMatrix = Zeros(Width, Height);
             
-            for(int r = 0; r < Height; ++r)
+            for(int r = 1; r <= Height; ++r)
             {
-                for(int c = 0; c < Width; ++c)
+                for(int c = 1; c <= Width; ++c)
                 {
-                    r_TransposedMatrix[c+1, r+1] = m_Elements[r, c];
+                    r_TransposedMatrix[c, r] = this[r, c];
                 }
             }
             return r_TransposedMatrix;
@@ -299,9 +450,9 @@ namespace MatrixLib
         //TODO: Rewrite print as pretty print
         public void Print()
         {
-            for (int r = 1; r <= this.Height; ++r)
+            for (int r = 1; r <= Height; ++r)
             {
-                for (int c = 1; c <= this.Width; ++c)
+                for (int c = 1; c <= Width; ++c)
                 {
                     Console.Write(this[r, c] + " ");
                 }
@@ -309,19 +460,17 @@ namespace MatrixLib
             }
         }
         
-        public delegate double Operation(double t_first, double t_second);
-        
         public double Norm
         {
             get
             {
                 double r_Norm = 0;
 
-                for(int r = 0; r < Height; ++r)
+                for (int r = 1; r <= Height; ++r)
                 {
-                    for (int c = 0; c < Width; ++c)
+                    for (int c = 1; c <= Width; ++c)
                     {
-                        r_Norm += m_Elements[r, c]* m_Elements[r,c];
+                        r_Norm += this[r, c] * this[r,c];
                     }
                 }
 
@@ -331,14 +480,7 @@ namespace MatrixLib
             private set {}
         }
         
-        //TODO: IMPLEMENT SQUARE CHECK
-        public double Determinant
-        {
-            get
-            {
-                return MatrixLib.Algorithms.Determinant(this);
-            }
-        }
+        public delegate double Operation(double t_first, double t_second);
 
         public int Width { get; private set; }
         public int Height { get; private set; }

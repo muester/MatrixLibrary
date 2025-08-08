@@ -1,126 +1,123 @@
 ﻿using System;
-using System.Collections.Generic;
+
 namespace MatrixLib
 {
     public static class Algorithms
     {
-        public static int Precision = 16;
+        public static int Precision = 16; 
+
+        internal static RealMatrix HHMatrix(RealMatrix t_Matrix, RealMatrix t_Vector)
+        {
+            int offset = (t_Matrix.Height - t_Vector.Height) + 1;
+
+            double alpha = -Math.Sign(t_Vector[1, 1]) * t_Vector.Norm;
+
+            RealMatrix v = t_Vector - RealMatrix.Elementary(1 + (t_Matrix.Height - offset), 1).Modify((a, b) => a * b, alpha);
+
+            v = v.Norm != 0 ? v.Modify((a, b) => a / b, v.Norm) : v;
+
+            RealMatrix Householder = RealMatrix.Eye(1 + (t_Matrix.Height - offset), 1 + (t_Matrix.Height - offset));
+
+            Householder -= (v * v.Transpose()).Modify((a, b) => a * b, 2);
+
+            Householder = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height).Insert(offset, offset, Householder);
+
+            return Householder;
+        }
+
         public static (RealMatrix, RealMatrix) QR(RealMatrix t_Matrix)
         {
-            RealMatrix r_Matrix = ~t_Matrix;
-            RealMatrix Q_Matrix = RealMatrix.Eye(t_Matrix.Height,t_Matrix.Height);
+            RealMatrix r_RMatrix = ~t_Matrix;
+            RealMatrix r_QMatrix = RealMatrix.Eye(t_Matrix.Height,t_Matrix.Height);
 
             for(int c = 1; c <= Math.Min(t_Matrix.Width,t_Matrix.Height); ++c)
             {
-                RealMatrix x = r_Matrix.SubMatrix(c, r_Matrix.Height, c, c);
+                RealMatrix projector = r_RMatrix.SubMatrix(c, r_RMatrix.Height, c, c);
 
-                //TODO: Fix zero bug
-                double alpha = -Math.Sign(x[1, 1]) * x.Norm;
-
-                RealMatrix v = x - RealMatrix.Elementary(r_Matrix.Height - c + 1, 1).Modify((a, b) => a * b, alpha);
-
-                if(v.Norm != 0)
-                    v = v.Modify((a, b) => a / b, v.Norm);
-
-                RealMatrix vT = v.Transpose();
-
-                RealMatrix Hc = RealMatrix.Eye(r_Matrix.Height - c + 1, r_Matrix.Height - c + 1) - (v * vT).Modify((a, b) => a * b, 2);
-
-                RealMatrix HTc = RealMatrix.Eye(r_Matrix.Height, r_Matrix.Height).Insert(c, c, Hc);
-
-                Q_Matrix = Q_Matrix * HTc;
-                r_Matrix = HTc * r_Matrix;
+                RealMatrix Householder = HHMatrix(r_RMatrix, projector);
+;
+                r_QMatrix = r_QMatrix * Householder;
+                r_RMatrix = Householder * r_RMatrix;
             }
 
-            Q_Matrix = Q_Matrix.Modify((a,b) => (double)Math.Round((decimal)a, (int)b), Precision);
-            r_Matrix = r_Matrix.Modify((a,b) => (double)Math.Round((decimal)a, (int)b), Precision);
+            r_QMatrix = r_QMatrix.SubMatrix(1, r_QMatrix.Height, 1, Math.Min(t_Matrix.Width,r_QMatrix.Width));
+            r_RMatrix = r_RMatrix.SubMatrix(1, Math.Min(t_Matrix.Width, t_Matrix.Height), 1, Math.Min(t_Matrix.Width,r_RMatrix.Width));
 
-            Q_Matrix = Q_Matrix.SubMatrix(1, Q_Matrix.Height, 1, Math.Min(t_Matrix.Width,Q_Matrix.Width));
-            r_Matrix = r_Matrix.SubMatrix(1, Math.Min(t_Matrix.Width, t_Matrix.Height), 1, Math.Min(t_Matrix.Width,r_Matrix.Width));
+            r_QMatrix = r_QMatrix.Round(Precision);
+            r_RMatrix = r_RMatrix.Round(Precision);
 
-            return (Q_Matrix, r_Matrix);
+            return (r_QMatrix, r_RMatrix);
         }
 
-        public static (RealMatrix,RealMatrix) Givens(RealMatrix t_Matrix)
+        public static (RealMatrix,RealMatrix) GivensQR(RealMatrix t_Matrix)
         {
 
-            double eps = Math.Pow(10, -10);
+            double eps = Math.Pow(10, -Precision);
 
-            RealMatrix r_Matrix = ~t_Matrix;
-            RealMatrix Q_Matrix = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height);
+            RealMatrix r_RMatrix = ~t_Matrix;
+            RealMatrix r_QMatrix = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height);
 
-            for (int c = 1; c < r_Matrix.Width; ++c)
+            for (int c = 1; c < r_RMatrix.Width; ++c)
             {
-                for(int r = c+1; r <= r_Matrix.Height; ++r)
+                for(int r = c+1; r <= r_RMatrix.Height; ++r)
                 {
-                    if (Math.Abs(r_Matrix[r,c]) > eps)
+                    if (Math.Abs(r_RMatrix[r,c]) > eps)
                     {
-                        RealMatrix g_Matrix = RealMatrix.Eye(r_Matrix.Height, r_Matrix.Height);
+                        RealMatrix g_Matrix = RealMatrix.Eye(r_RMatrix.Height, r_RMatrix.Height);
 
-                        var re = Math.Sqrt(Math.Pow(r_Matrix[c,c],2) + Math.Pow(r_Matrix[r,c],2));
-                        var ce = r_Matrix[c, c] / re;
-                        var se = -r_Matrix[r, c] / re;
+                        var hypotenuse = Math.Sqrt(Math.Pow(r_RMatrix[c,c],2) + Math.Pow(r_RMatrix[r,c],2));
+                        var cosine = r_RMatrix[c, c] / hypotenuse;
+                        var sine = -r_RMatrix[r, c] / hypotenuse;
 
-                        g_Matrix[c, c] = ce;
-                        g_Matrix[r, r] = ce;
-                        g_Matrix[r, c] = se;
-                        g_Matrix[c, r] = -se;
+                        g_Matrix[c, c] = cosine;
+                        g_Matrix[r, r] = cosine;
 
-                        r_Matrix = g_Matrix*r_Matrix;
+                        g_Matrix[r, c] = sine;
+                        g_Matrix[c, r] = -sine;
 
-                        Q_Matrix *= g_Matrix.Transpose();
+                        r_RMatrix = g_Matrix * r_RMatrix;
+
+                        r_QMatrix *= g_Matrix.Transpose();
                     }
                 }
-
             }
-            return (Q_Matrix, r_Matrix);
+
+            r_QMatrix = r_QMatrix.SubMatrix(1, r_QMatrix.Height, 1, Math.Min(t_Matrix.Width, r_QMatrix.Width));
+            r_RMatrix = r_RMatrix.SubMatrix(1, Math.Min(t_Matrix.Width, t_Matrix.Height), 1, Math.Min(t_Matrix.Width, r_RMatrix.Width));
+
+            return (r_QMatrix, r_RMatrix);
         }
 
         public static RealMatrix Hessenberg(RealMatrix t_Matrix)
         {
-            // TODO: Check square matrix
+            if(t_Matrix.Height != t_Matrix.Width)
+            {
+                throw new RankException("Error: Matrix is not square!");
+            }
 
             RealMatrix r_Matrix =~ t_Matrix;
 
-            for (int s = 1; s <= t_Matrix.Height - 2; ++s)
+            for (int s = 1; s <= r_Matrix.Height - 2; ++s)
             {
 
-                RealMatrix t_Column = t_Matrix.SubMatrix(1+s, t_Matrix.Height, s, s);
+                RealMatrix t_Column = r_Matrix.SubMatrix(1+s, r_Matrix.Height, s, s);
 
-                int sign = 1;
+                RealMatrix Householder = HHMatrix(r_Matrix, t_Column);
 
-                if (t_Column[1, 1] <= 0)
-                    sign = -1;
-
-                RealMatrix t_Projector = RealMatrix.Elementary(t_Column.Height, 1);
-                if(t_Column.Norm != 0)
-                    t_Projector =  t_Projector.Modify((a, b) => (a * b), t_Column.Norm * sign);
-
-                t_Projector += t_Column;
-
-                t_Projector.Modify((a, b) => a / b, t_Projector.Norm);
-
-                RealMatrix t_Householder = RealMatrix.Eye(t_Column.Height, t_Column.Height);
-                t_Householder -= (t_Projector * t_Projector.Transpose()).Modify((a, b) => (a * b), 2 / (t_Projector.Norm * t_Projector.Norm));
-
-                RealMatrix Q_Matrix = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Width).Insert(1 + s, 1 + s, t_Householder);
-
-                t_Matrix = Q_Matrix * t_Matrix * Q_Matrix.Transpose();
+                r_Matrix = Householder * r_Matrix * Householder.Transpose();
             }
 
-            t_Matrix = t_Matrix.Modify((a, b) => (double)Math.Round((decimal)a, (int)b), Precision);
+            r_Matrix = r_Matrix.Round(Precision);
 
-            return t_Matrix;
+            return r_Matrix;
         }
 
-        public static RealMatrix Triangular(RealMatrix t_Matrix)
+        public static RealMatrix? Triangular(RealMatrix t_Matrix)
         {
-            //TODO: Implement GIVENS ROTATIONS to save MAJOR COMPUTATIONAL power
-            //TODO: FIX PRECISION BUG
 
             RealMatrix o_Matrix = ~t_Matrix;
 
-            double eps = Math.Pow(10, -10);
+            double eps = Math.Pow(10, -Precision);
 
             int iteration = 0;
             double error = 0;
@@ -131,9 +128,11 @@ namespace MatrixLib
             while(repeat)
             {
                 ++iteration;
+                
                 lasterror = error;
                 error = 0;
                 repeat = false;
+
                 for(int i = 1; i < t_Matrix.Width; ++i)
                 {
                     error += Math.Abs(t_Matrix[i + 1, i]);
@@ -143,37 +142,25 @@ namespace MatrixLib
                     }      
                 }
                 
+
+                // Algorithm does not converge on this matrix
                 if(iteration > 3 && (lasterror-error) <= 0)
                 {
-                    Console.WriteLine("COMPLEX EIGENVALUES PLACEHOLDER");
-                    return o_Matrix;
+                    return null;
                 }    
 
-                var (Q, R) = Givens(t_Matrix);
+                var (Q, R) = GivensQR(t_Matrix);
                 t_Matrix = R * Q;
             }
             return t_Matrix;
         }
 
-      
-        public static List<double> Eigenvalues (RealMatrix t_Matrix)
-        {
-            RealMatrix h_Matrix = Hessenberg(t_Matrix);
-            RealMatrix tri_Matrix = Triangular(h_Matrix);
-
-            var eigs = new List<double>();
-
-            for (int i = 1; i <= tri_Matrix.Width; ++i)
-            {
-                eigs.Add(Math.Round(tri_Matrix[i, i],Precision));
-            }
-
-            return eigs;
-        }
-
         public static RealMatrix BackwardTriangle(RealMatrix t_Matrix)
         {
-            //TODO: squaaaaaare
+            if (t_Matrix.Height != t_Matrix.Width)
+            {
+                throw new RankException("Error: Matrix is not square!");
+            }
 
             RealMatrix r_Matrix = RealMatrix.Zeros(t_Matrix.Height, t_Matrix.Width);
 
@@ -199,7 +186,10 @@ namespace MatrixLib
 
         public static RealMatrix ForwardTriangle(RealMatrix t_Matrix)
         {
-            //TODO: squaaaaaare
+            if (t_Matrix.Height != t_Matrix.Width)
+            {
+                throw new RankException("Error: Matrix is not square!");
+            }
 
             RealMatrix r_Matrix = RealMatrix.Zeros(t_Matrix.Height, t_Matrix.Width);
 
@@ -225,90 +215,94 @@ namespace MatrixLib
 
         public static RealMatrix Inverse(RealMatrix t_Matrix)
         {
-            var (L, U, P) = Algorithms.LU(t_Matrix);
+            if(Determinant(t_Matrix) == 0)
+            {
+                throw new ArgumentException("Error: Singular matrices do not have a clearly defined inverse!");
+            }
+            
+            (RealMatrix L, RealMatrix U, RealMatrix P) = LU(t_Matrix);
 
-            var r_Matrix = BackwardTriangle(U) * ForwardTriangle(L) * P;
+            RealMatrix r_Matrix = BackwardTriangle(U) * ForwardTriangle(L) * P;
 
             return r_Matrix;
         }
 
         public static RealMatrix LinSys(RealMatrix t_Matrix, RealMatrix b_Matrix)
         {
+            if (t_Matrix.Height != t_Matrix.Width)
+            {
+                throw new RankException("Error: Matrix is not square!");
+            }
+
             return Inverse(t_Matrix) * b_Matrix;
         }
 
-        // TODO: Fix precision
+        internal static RealMatrix SwapRows(RealMatrix t_Matrix, int t_First, int t_Second, int t_ColumnStart, int t_ColumnEnd)
+        {
+            for(int c = t_ColumnStart; c <= t_ColumnEnd; ++c)
+            {
+                (t_Matrix[t_First, c], t_Matrix[t_Second, c]) = (t_Matrix[t_Second, c], t_Matrix[t_First, c]);
+            }
+
+            return t_Matrix;
+        }
+
         internal static (RealMatrix, RealMatrix, RealMatrix, int) InternalLUP(RealMatrix t_Matrix)
         {
-            RealMatrix r_Matrix = t_Matrix.SubMatrix(1,t_Matrix.Height,1,t_Matrix.Width);
+            RealMatrix R_Matrix = ~t_Matrix;
             RealMatrix L_Matrix = RealMatrix.Eye(t_Matrix.Height, Math.Min(t_Matrix.Width,t_Matrix.Height));
             RealMatrix P_Matrix = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height);
 
             int Swaps = 0;
-            int h = 1;
-            int k = 1;
+            int currentRow = 1;
+            int currentColumn = 1;
 
-            while (h <= r_Matrix.Height && k <= r_Matrix.Width)
+            while (currentRow <= R_Matrix.Height && currentColumn <= R_Matrix.Width)
             {
-                int i_max = h;
-                double max_value = r_Matrix[h, k];
+                int max_index = currentRow;
+                double max_value = R_Matrix[currentRow, currentColumn];
 
-                for(int i = h; i <= r_Matrix.Height; ++i)
+                for(int index = currentRow; index <= R_Matrix.Height; ++index)
                 {
-                    if (Math.Abs(r_Matrix[i,k]) > max_value)
+                    if (Math.Abs(R_Matrix[index,currentColumn]) > max_value)
                     {
-                        i_max = i;
-                        max_value = Math.Abs(r_Matrix[i, k]);
+                        max_index = index;
+                        max_value = Math.Abs(R_Matrix[index, currentColumn]);
                     }
                 }
 
-                if (max_value == 0)
+                if (max_value < Math.Pow(10, -Precision))
                 {
-                    ++k;
+                    ++currentColumn;
                     continue;
                 }    
 
-                if(h != i_max)
+                if(currentRow != max_index)
                 {
                     ++Swaps;
 
-                    RealMatrix TopRow = r_Matrix.SubMatrix(h, h, 1, r_Matrix.Width);
-                    RealMatrix BestRow = r_Matrix.SubMatrix(i_max, i_max, 1, r_Matrix.Width);
-
-                    RealMatrix LTopRow = L_Matrix.SubMatrix(h, h, 1, k - 1);
-                    RealMatrix LBestRow = L_Matrix.SubMatrix(i_max, i_max, 1, k - 1);
-
-                    RealMatrix PTopRow = P_Matrix.SubMatrix(h, h, 1, P_Matrix.Width);
-                    RealMatrix PBestRow = P_Matrix.SubMatrix(i_max, i_max, 1, P_Matrix.Width);
-
-                    r_Matrix = r_Matrix.Insert(h, 1, BestRow);
-                    r_Matrix = r_Matrix.Insert(i_max, 1, TopRow);
-
-                    L_Matrix = L_Matrix.Insert(h, 1, LBestRow);
-                    L_Matrix = L_Matrix.Insert(i_max, 1, LTopRow);
-
-                    P_Matrix = P_Matrix.Insert(h, 1, PBestRow);
-                    P_Matrix = P_Matrix.Insert(i_max, 1, PTopRow);
+                    L_Matrix = SwapRows(L_Matrix, currentRow, max_index, 1, currentColumn - 1);
+                    R_Matrix = SwapRows(R_Matrix, currentRow, max_index, 1, R_Matrix.Width);
+                    P_Matrix = SwapRows(P_Matrix, currentRow, max_index, 1, P_Matrix.Width);
                 }
 
-
-                for (int i = h+1; i <= Math.Min(r_Matrix.Width,r_Matrix.Height); ++i)
+                for (int i = currentRow+1; i <= R_Matrix.Height; ++i)
                 {
-                    double f = r_Matrix[i, k] / r_Matrix[h, k];
+                    double coefficient = R_Matrix[i, currentColumn] / R_Matrix[currentRow, currentColumn];
 
-                    L_Matrix[i, k] = f;
-                    r_Matrix[i, k] = 0;
+                    L_Matrix[i, currentColumn] = coefficient;
+                    R_Matrix[i, currentColumn] = 0;
 
-                    for(int j = k+1; j <= r_Matrix.Width; ++j)
+                    for(int j = currentColumn+1; j <= R_Matrix.Width; ++j)
                     {
-                        r_Matrix[i, j] = r_Matrix[i, j] - r_Matrix[h, j] * f;
+                        R_Matrix[i, j] = R_Matrix[i, j] - R_Matrix[currentRow, j] * coefficient;
                     }
                 }
-                ++h;
-                ++k;
+                ++currentRow;
+                ++currentColumn;
             }
 
-            return (L_Matrix,r_Matrix, P_Matrix, Swaps);
+            return (L_Matrix,R_Matrix.SubMatrix(1,Math.Min(t_Matrix.Width,t_Matrix.Height),1,t_Matrix.Width), P_Matrix, Swaps);
         }
 
         public static (RealMatrix, RealMatrix, RealMatrix) LU(RealMatrix t_Matrix)
@@ -317,15 +311,19 @@ namespace MatrixLib
             return (L,U,P);
         }
 
-        //TODO: CHECK THE MATRIX IS INDEED SQUARE
-        internal static double Determinant(RealMatrix t_Matrix)
+        public static double Determinant(RealMatrix t_Matrix)
         {
+            if (t_Matrix.Height != t_Matrix.Width)
+            {
+                throw new RankException("Error: Matrix is not square!");
+            }
+
             var (L, U, P, S) = InternalLUP(t_Matrix);
 
             double L_Determinant = 1;
             double U_Determinant = 1;
 
-            double Sign = (-2) * (S % 2) + 1;
+            double sign = (-2) * (S % 2) + 1;
 
             // Can be collapsed into one loop, keeping for clarity for now
             for(int i = 1; i <= L.Height; ++i)
@@ -338,7 +336,36 @@ namespace MatrixLib
                 U_Determinant *= U[i, i];
             }
 
-            return Math.Round(Sign * L_Determinant * U_Determinant,Precision);
+            if (Precision == 16)
+                return sign * L_Determinant * U_Determinant;
+            return Math.Round(sign * L_Determinant * U_Determinant, Precision);
         }
+
+        public static double[] Eigenvalues(RealMatrix t_Matrix)
+        {
+            RealMatrix h_Matrix = Hessenberg(t_Matrix);
+            RealMatrix? tri_Matrix = Triangular(h_Matrix);
+
+            if(tri_Matrix is null)
+            {
+                return [];
+            }
+
+            var eigs = new double[tri_Matrix.Width];
+
+            for (int i = 1; i <= tri_Matrix.Width; ++i)
+            {
+                if (Precision == 16)
+                {
+                    eigs[i - 1] = tri_Matrix[i, i];
+                }
+                else
+                {
+                    eigs[i - 1] = Math.Round(tri_Matrix[i, i], Precision);
+                }
+            }
+
+            return eigs;
+        } 
     }
 }
