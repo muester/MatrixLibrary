@@ -57,9 +57,9 @@ namespace MatrixLib
 
         public static RealMatrix From(double[,] t_Elements)
         {
-            (int t_Height, int t_Width) = (t_Elements.GetLength(0), t_Elements.GetLength(1));
+            (int height, int width) = (t_Elements.GetLength(0), t_Elements.GetLength(1));
             
-            RealMatrix r_Matrix = new RealMatrix(t_Height, t_Width);
+            RealMatrix r_Matrix = new RealMatrix(height, width);
 
             for(int r = 1; r <= r_Matrix.Height; ++r)
             {
@@ -87,13 +87,7 @@ namespace MatrixLib
             using (StreamReader fileData = new StreamReader(t_File))
             {
 
-                string? metadata = fileData.ReadLine();
-
-                if (metadata == null)
-                {
-                    throw new FormatException("Error: Incorrect matrix file format!");
-                }
-
+                string? metadata = fileData.ReadLine() ?? throw new FormatException("Error: Incorrect matrix file format!");
                 uint matrices = uint.Parse(metadata.Trim());
 
                 RealMatrix[] r_Matrices = new RealMatrix[matrices];
@@ -116,13 +110,7 @@ namespace MatrixLib
 
                     for (int r = 1; r <= height; ++r)
                     {
-                        string? row = fileData.ReadLine();
-
-                        if (row == null)
-                        {
-                            throw new EndOfStreamException("Error: Expected matrix data not found!");
-                        }
-
+                        string? row = fileData.ReadLine() ?? throw new EndOfStreamException("Error: Expected matrix data not found!");
                         string[] entries = Regex.Replace(row.Trim(), @"\s+", " ").Split(" ");
 
                         for (int c = 1; c <= width; ++c)
@@ -171,7 +159,6 @@ namespace MatrixLib
                             fileData.Write(t_Matrices[m][r, c] + " ");
                         }
                         fileData.Write("\n");
-
                     }
                 }
             }
@@ -187,6 +174,7 @@ namespace MatrixLib
                 {
                     throw new IndexOutOfRangeException("Error: Non-existent element accessed!");
                 }
+
                 return m_Elements[t_Row -1, t_Column -1];
             }
             set
@@ -195,6 +183,7 @@ namespace MatrixLib
                 {
                     throw new IndexOutOfRangeException("Error: Non-existent element accessed!");
                 }
+
                 m_Elements[t_Row -1, t_Column -1] = value;
             }
         }
@@ -258,7 +247,7 @@ namespace MatrixLib
             return r_Matrix;
         }
 
-        public static RealMatrix ElementwiseOperation(Operation operation, RealMatrix t_LeftMatrix, RealMatrix t_RightMatrix)
+        public static RealMatrix ElementwiseOperation(Operation t_operation, RealMatrix t_LeftMatrix, RealMatrix t_RightMatrix)
         {
             if (t_LeftMatrix.Height != t_RightMatrix.Height|| t_LeftMatrix.Width != t_RightMatrix.Width)
             {
@@ -271,7 +260,7 @@ namespace MatrixLib
             {
                 for (int c = 1; c <= r_Matrix.Width; ++c)
                 {
-                    r_Matrix[r, c] = operation(t_LeftMatrix[r, c],t_RightMatrix[r, c]);
+                    r_Matrix[r, c] = t_operation(t_LeftMatrix[r, c],t_RightMatrix[r, c]);
                 }
             }
 
@@ -305,6 +294,7 @@ namespace MatrixLib
                     }
                 }
             }
+
             return true;
         }
 
@@ -315,9 +305,7 @@ namespace MatrixLib
 
         public override bool Equals(object? obj)
         {
-            if (obj is null || GetType() != obj.GetType())
-                return false;
-            return this == (RealMatrix) obj;
+            return obj is null || GetType() != obj.GetType() ? false : this == (RealMatrix) obj;
         }
 
         public override int GetHashCode()
@@ -372,10 +360,10 @@ namespace MatrixLib
                 throw new IndexOutOfRangeException("Error: Non-existent elements requested!");
             }
 
-            int t_Height = (t_RowEnd - t_RowBegin) + 1;
-            int t_Width = (t_ColumnEnd - t_ColumnBegin) + 1;
+            int height = (t_RowEnd - t_RowBegin) + 1;
+            int width = (t_ColumnEnd - t_ColumnBegin) + 1;
 
-            RealMatrix r_Matrix = Zeros(t_Height,t_Width);
+            RealMatrix r_Matrix = Zeros(height,width);
 
             for (int r = t_RowBegin; r <= t_RowEnd; ++r)
             {
@@ -390,10 +378,10 @@ namespace MatrixLib
 
         public RealMatrix Insert(int t_Row, int t_Column, RealMatrix t_InsertedMatrix)
         {
-            int RequiredWidth = (t_InsertedMatrix.Width + t_Column) - 1;
-            int RequiredHeight = (t_InsertedMatrix.Height + t_Row) - 1;
+            int requiredWidth = (t_InsertedMatrix.Width + t_Column) - 1;
+            int requiredHeight = (t_InsertedMatrix.Height + t_Row) - 1;
 
-            if (RequiredWidth > Width || RequiredHeight > Height)
+            if (requiredWidth > Width || requiredHeight > Height)
             {
                 throw new RankException("Error: Matrix dimensions too large to be inserted at the requested position!");
             }
@@ -447,15 +435,31 @@ namespace MatrixLib
             return r_TransposedMatrix;
         }
 
-        //TODO: Rewrite print as pretty print
         public void Print()
         {
+            int paddingOffset = 2;
+
+            int[] paddings = new int[Width];
+
+            for (int c = 1; c <= Width; ++c)
+            {
+                for (int r = 1; r <= Height; ++r)
+                {
+                    int length = Math.Sign(this[r, c]) * Math.Abs(Math.Floor(this[r, c])).ToString().Length;
+
+                    paddings[c-1] = paddings[c-1] < length ? length : paddings[c-1];
+                }
+            }
+
             for (int r = 1; r <= Height; ++r)
             {
                 for (int c = 1; c <= Width; ++c)
                 {
-                    Console.Write(this[r, c] + " ");
+                    double entry = Algorithms.Precision == 16 ? this[r,c] : Math.Round(this[r,c], Algorithms.Precision);
+
+                    Console.Write(entry.ToString().PadLeft(paddings[c-1]+ Algorithms.Precision + paddingOffset,' ') + " ");
                 }
+
                 Console.WriteLine();
             }
         }

@@ -16,13 +16,13 @@ namespace MatrixLib
 
             v = v.Norm != 0 ? v.Modify((a, b) => a / b, v.Norm) : v;
 
-            RealMatrix Householder = RealMatrix.Eye(1 + (t_Matrix.Height - offset), 1 + (t_Matrix.Height - offset));
+            RealMatrix r_Householder = RealMatrix.Eye(1 + (t_Matrix.Height - offset), 1 + (t_Matrix.Height - offset));
 
-            Householder -= (v * v.Transpose()).Modify((a, b) => a * b, 2);
+            r_Householder -= (v * v.Transpose()).Modify((a, b) => a * b, 2);
 
-            Householder = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height).Insert(offset, offset, Householder);
+            r_Householder = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height).Insert(offset, offset, r_Householder);
 
-            return Householder;
+            return r_Householder;
         }
 
         public static (RealMatrix, RealMatrix) QR(RealMatrix t_Matrix)
@@ -34,10 +34,10 @@ namespace MatrixLib
             {
                 RealMatrix projector = r_RMatrix.SubMatrix(c, r_RMatrix.Height, c, c);
 
-                RealMatrix Householder = HHMatrix(r_RMatrix, projector);
+                RealMatrix householder = HHMatrix(r_RMatrix, projector);
 ;
-                r_QMatrix = r_QMatrix * Householder;
-                r_RMatrix = Householder * r_RMatrix;
+                r_QMatrix = r_QMatrix * householder;
+                r_RMatrix = householder * r_RMatrix;
             }
 
             r_QMatrix = r_QMatrix.SubMatrix(1, r_QMatrix.Height, 1, Math.Min(t_Matrix.Width,r_QMatrix.Width));
@@ -63,21 +63,21 @@ namespace MatrixLib
                 {
                     if (Math.Abs(r_RMatrix[r,c]) > eps)
                     {
-                        RealMatrix g_Matrix = RealMatrix.Eye(r_RMatrix.Height, r_RMatrix.Height);
+                        RealMatrix givensMatrix = RealMatrix.Eye(r_RMatrix.Height, r_RMatrix.Height);
 
                         var hypotenuse = Math.Sqrt(Math.Pow(r_RMatrix[c,c],2) + Math.Pow(r_RMatrix[r,c],2));
                         var cosine = r_RMatrix[c, c] / hypotenuse;
                         var sine = -r_RMatrix[r, c] / hypotenuse;
 
-                        g_Matrix[c, c] = cosine;
-                        g_Matrix[r, r] = cosine;
+                        givensMatrix[c, c] = cosine;
+                        givensMatrix[r, r] = cosine;
 
-                        g_Matrix[r, c] = sine;
-                        g_Matrix[c, r] = -sine;
+                        givensMatrix[r, c] = sine;
+                        givensMatrix[c, r] = -sine;
 
-                        r_RMatrix = g_Matrix * r_RMatrix;
+                        r_RMatrix = givensMatrix * r_RMatrix;
 
-                        r_QMatrix *= g_Matrix.Transpose();
+                        r_QMatrix *= givensMatrix.Transpose();
                     }
                 }
             }
@@ -100,11 +100,11 @@ namespace MatrixLib
             for (int s = 1; s <= r_Matrix.Height - 2; ++s)
             {
 
-                RealMatrix t_Column = r_Matrix.SubMatrix(1+s, r_Matrix.Height, s, s);
+                RealMatrix column = r_Matrix.SubMatrix(1+s, r_Matrix.Height, s, s);
 
-                RealMatrix Householder = HHMatrix(r_Matrix, t_Column);
+                RealMatrix householder = HHMatrix(r_Matrix, column);
 
-                r_Matrix = Householder * r_Matrix * Householder.Transpose();
+                r_Matrix = householder * r_Matrix * householder.Transpose();
             }
 
             r_Matrix = r_Matrix.Round(Precision);
@@ -114,14 +114,11 @@ namespace MatrixLib
 
         public static RealMatrix? Triangular(RealMatrix t_Matrix)
         {
-
-            RealMatrix o_Matrix = ~t_Matrix;
-
             double eps = Math.Pow(10, -Precision);
 
             int iteration = 0;
             double error = 0;
-            double lasterror;
+            double lastError;
 
             bool repeat = true;
 
@@ -129,7 +126,7 @@ namespace MatrixLib
             {
                 ++iteration;
                 
-                lasterror = error;
+                lastError = error;
                 error = 0;
                 repeat = false;
 
@@ -144,7 +141,7 @@ namespace MatrixLib
                 
 
                 // Algorithm does not converge on this matrix
-                if(iteration > 3 && (lasterror-error) <= 0)
+                if(iteration > 3 && (lastError-error) <= 0)
                 {
                     return null;
                 }    
@@ -168,9 +165,9 @@ namespace MatrixLib
             {
                 for (int r = r_Matrix.Height; r >= 1; --r)
                 {
-                    double Kronecker = (c == r ? 1 : 0);
+                    double kronecker = (c == r ? 1 : 0);
 
-                    double res = Kronecker;
+                    double res = kronecker;
 
                     for (int o = r + 1; o <= r_Matrix.Height; ++o)
                     {
@@ -197,9 +194,9 @@ namespace MatrixLib
             {
                 for (int r = 1; r <= r_Matrix.Height; ++r)
                 {
-                    double Kronecker = (c == r ? 1 : 0);
+                    double kronecker = (c == r ? 1 : 0);
 
-                    double res = Kronecker;
+                    double res = kronecker;
 
                     for (int o = 1; o <= r - 1; ++o)
                     {
@@ -249,25 +246,25 @@ namespace MatrixLib
 
         internal static (RealMatrix, RealMatrix, RealMatrix, int) InternalLUP(RealMatrix t_Matrix)
         {
-            RealMatrix R_Matrix = ~t_Matrix;
-            RealMatrix L_Matrix = RealMatrix.Eye(t_Matrix.Height, Math.Min(t_Matrix.Width,t_Matrix.Height));
-            RealMatrix P_Matrix = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height);
+            RealMatrix r_RMatrix = ~t_Matrix;
+            RealMatrix r_LMatrix = RealMatrix.Eye(t_Matrix.Height, Math.Min(t_Matrix.Width,t_Matrix.Height));
+            RealMatrix r_PMatrix = RealMatrix.Eye(t_Matrix.Height, t_Matrix.Height);
 
-            int Swaps = 0;
+            int r_Swaps = 0;
             int currentRow = 1;
             int currentColumn = 1;
 
-            while (currentRow <= R_Matrix.Height && currentColumn <= R_Matrix.Width)
+            while (currentRow <= r_RMatrix.Height && currentColumn <= r_RMatrix.Width)
             {
                 int max_index = currentRow;
-                double max_value = R_Matrix[currentRow, currentColumn];
+                double max_value = r_RMatrix[currentRow, currentColumn];
 
-                for(int index = currentRow; index <= R_Matrix.Height; ++index)
+                for(int index = currentRow; index <= r_RMatrix.Height; ++index)
                 {
-                    if (Math.Abs(R_Matrix[index,currentColumn]) > max_value)
+                    if (Math.Abs(r_RMatrix[index,currentColumn]) > max_value)
                     {
                         max_index = index;
-                        max_value = Math.Abs(R_Matrix[index, currentColumn]);
+                        max_value = Math.Abs(r_RMatrix[index, currentColumn]);
                     }
                 }
 
@@ -279,30 +276,30 @@ namespace MatrixLib
 
                 if(currentRow != max_index)
                 {
-                    ++Swaps;
+                    ++r_Swaps;
 
-                    L_Matrix = SwapRows(L_Matrix, currentRow, max_index, 1, currentColumn - 1);
-                    R_Matrix = SwapRows(R_Matrix, currentRow, max_index, 1, R_Matrix.Width);
-                    P_Matrix = SwapRows(P_Matrix, currentRow, max_index, 1, P_Matrix.Width);
+                    r_LMatrix = SwapRows(r_LMatrix, currentRow, max_index, 1, currentColumn - 1);
+                    r_RMatrix = SwapRows(r_RMatrix, currentRow, max_index, 1, r_RMatrix.Width);
+                    r_PMatrix = SwapRows(r_PMatrix, currentRow, max_index, 1, r_PMatrix.Width);
                 }
 
-                for (int i = currentRow+1; i <= R_Matrix.Height; ++i)
+                for (int i = currentRow+1; i <= r_RMatrix.Height; ++i)
                 {
-                    double coefficient = R_Matrix[i, currentColumn] / R_Matrix[currentRow, currentColumn];
+                    double coefficient = r_RMatrix[i, currentColumn] / r_RMatrix[currentRow, currentColumn];
 
-                    L_Matrix[i, currentColumn] = coefficient;
-                    R_Matrix[i, currentColumn] = 0;
+                    r_LMatrix[i, currentColumn] = coefficient;
+                    r_RMatrix[i, currentColumn] = 0;
 
-                    for(int j = currentColumn+1; j <= R_Matrix.Width; ++j)
+                    for(int j = currentColumn+1; j <= r_RMatrix.Width; ++j)
                     {
-                        R_Matrix[i, j] = R_Matrix[i, j] - R_Matrix[currentRow, j] * coefficient;
+                        r_RMatrix[i, j] = r_RMatrix[i, j] - r_RMatrix[currentRow, j] * coefficient;
                     }
                 }
                 ++currentRow;
                 ++currentColumn;
             }
 
-            return (L_Matrix,R_Matrix.SubMatrix(1,Math.Min(t_Matrix.Width,t_Matrix.Height),1,t_Matrix.Width), P_Matrix, Swaps);
+            return (r_LMatrix,r_RMatrix.SubMatrix(1,Math.Min(t_Matrix.Width,t_Matrix.Height),1,t_Matrix.Width), r_PMatrix, r_Swaps);
         }
 
         public static (RealMatrix, RealMatrix, RealMatrix) LU(RealMatrix t_Matrix)
@@ -320,25 +317,25 @@ namespace MatrixLib
 
             var (L, U, P, S) = InternalLUP(t_Matrix);
 
-            double L_Determinant = 1;
-            double U_Determinant = 1;
+            double LDeterminant = 1;
+            double UDeterminant = 1;
 
             double sign = (-2) * (S % 2) + 1;
 
             // Can be collapsed into one loop, keeping for clarity for now
             for(int i = 1; i <= L.Height; ++i)
             {
-                L_Determinant *= L[i, i];
+                LDeterminant *= L[i, i];
             }
 
             for (int i = 1; i <= U.Height; ++i)
             {
-                U_Determinant *= U[i, i];
+                UDeterminant *= U[i, i];
             }
 
             if (Precision == 16)
-                return sign * L_Determinant * U_Determinant;
-            return Math.Round(sign * L_Determinant * U_Determinant, Precision);
+                return sign * LDeterminant * UDeterminant;
+            return Math.Round(sign * LDeterminant * UDeterminant, Precision);
         }
 
         public static double[] Eigenvalues(RealMatrix t_Matrix)
