@@ -101,3 +101,12 @@
         - Vrací determinant čtvercové matice
     - `static double[] Eigenvalues(RealMatrix t_Matrix)`
         - Vrací spektrum matice
+
+  ## Apendix A
+    - Program pracuje s vlastním souborovým formátem, nuceně označeným typem souboru .mat
+    - Struktura souboru .mat je následující:
+        1. Řádek s přirozeným číslem, označující počet matic v souboru, následovaný prázdným řádkem
+        2. Jeden či více záznamů o matici, složený z:
+           1. Řádku s dvěma hodnotami reprezentujícími výšku a šířku matice
+           2. Řádkově oddělenými hodnotami matice, které jsou na řádku odděleny mezerou
+    
