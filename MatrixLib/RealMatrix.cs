@@ -288,7 +288,16 @@ namespace MatrixLib
             {
                 for (int c = 1; c <= t_LeftMatrix.Width; ++c)
                 {
-                    if (t_LeftMatrix[r,c] != t_RightMatrix[r,c])
+                    double left = t_LeftMatrix[r, c];
+                    double right = t_RightMatrix[r, c];
+
+                    if (Algorithms.Precision != 16)
+                    {
+                        left = Math.Round(left, Algorithms.Precision);
+                        right = Math.Round(right, Algorithms.Precision);
+                    }
+
+                    if (left != right)
                     {
                         return false;
                     }

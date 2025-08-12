@@ -88,7 +88,7 @@ namespace MatrixLib
             return (r_QMatrix, r_RMatrix);
         }
 
-        public static RealMatrix Hessenberg(RealMatrix t_Matrix)
+        internal static RealMatrix Hessenberg(RealMatrix t_Matrix)
         {
             if(t_Matrix.Height != t_Matrix.Width)
             {
@@ -112,7 +112,7 @@ namespace MatrixLib
             return r_Matrix;
         }
 
-        public static RealMatrix? Triangular(RealMatrix t_Matrix)
+        internal static RealMatrix? Triangular(RealMatrix t_Matrix)
         {
             double eps = Math.Pow(10, -Precision);
 
@@ -152,7 +152,7 @@ namespace MatrixLib
             return t_Matrix;
         }
 
-        public static RealMatrix BackwardTriangle(RealMatrix t_Matrix)
+        internal static RealMatrix BackwardTriangle(RealMatrix t_Matrix)
         {
             if (t_Matrix.Height != t_Matrix.Width)
             {
@@ -181,7 +181,7 @@ namespace MatrixLib
             return r_Matrix;
         }
 
-        public static RealMatrix ForwardTriangle(RealMatrix t_Matrix)
+        internal static RealMatrix ForwardTriangle(RealMatrix t_Matrix)
         {
             if (t_Matrix.Height != t_Matrix.Width)
             {
