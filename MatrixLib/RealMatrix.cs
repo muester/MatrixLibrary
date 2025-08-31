@@ -464,7 +464,10 @@ namespace MatrixLib
             {
                 for (int c = 1; c <= Width; ++c)
                 {
-                    double entry = Algorithms.Precision == 16 ? this[r,c] : Math.Round(this[r,c], Algorithms.Precision);
+                    decimal entry = Math.Round((decimal)this[r,c], Algorithms.Precision);
+
+                    if (paddings[c - 1] == 0)
+                        ++paddings[c - 1];
 
                     Console.Write(entry.ToString().PadLeft(paddings[c-1]+ Algorithms.Precision + paddingOffset,' ') + " ");
                 }
