@@ -5,10 +5,78 @@
 | RealMatrix | Tvoření matic, modifikování a ořezávání matic, základní maticové operace|
 | Algorithms | Rozklady matic, Inverz matice a řešení SLR, výpočet determinantu a vlastních čísel |  
 
+## Příklad fungování knihovny
+
+```csharp
+        static void Example()
+        {
+            Algorithms.Precision = 10;
+        
+            (int height, int width) = (3, 5);
+
+            double[,] Hilbert = new double[height, width];
+            for (int i = 0; i < height; i++)
+            {
+                for (int j = 0; j < width; j++)
+                {
+                    Hilbert[i, j] = 1.0 / (i + j + 1);
+                }
+            }
+
+            RealMatrix HilbertMatrix = RealMatrix.From(Hilbert);
+
+            Console.WriteLine("The original Hilbert Matrix:");
+            HilbertMatrix.Print();
+            Console.WriteLine();
+            (RealMatrix Q, RealMatrix R) = Algorithms.QR(HilbertMatrix);
+            
+            Q.Print();
+            Console.WriteLine(" *");
+            R.Print();
+            Console.WriteLine(" =");
+            (Q * R).Print();
+            Console.WriteLine();
+
+            RealMatrix SquareHilbert = HilbertMatrix.SubMatrix(1, 3, 1, 3);
+            Console.WriteLine("Extracted 3x3 Hilbert Matrix:");
+            SquareHilbert.Print();
+
+            Console.WriteLine($"Computed determinant of a 3x3 square Hilbert matrix is: {Algorithms.Determinant(SquareHilbert)}");
+            Console.WriteLine($"The correct value should be: {1.0 / 2160}");
+
+        }
+```
+Výstup:
+```
+The original Hilbert Matrix:
+            1           0,5  0,3333333333          0,25           0,2
+          0,5  0,3333333333          0,25           0,2  0,1666666667
+ 0,3333333333          0,25           0,2  0,1666666667  0,1428571429
+
+-0,8571428571  0,5016049166 -0,1170411472
+-0,4285714286 -0,5684855721  0,7022468832
+-0,2857142857 -0,6520863915 -0,7022468832
+ *
+-1,1666666667 -0,6428571429         -0,45 -0,3476190476 -0,2836734694
+            0 -0,1017143303 -0,1053370325 -0,0969769505 -0,0875818108
+            0             0 -0,0039013716 -0,0058520574 -0,0066880656
+ =
+ 1,0000000000  0,5000000000  0,3333333333  0,2500000000  0,2000000000
+ 0,5000000000  0,3333333334  0,2500000000  0,2000000000  0,1666666666
+ 0,3333333333  0,2500000000  0,2000000000  0,1666666667  0,1428571429
+
+Extracted 3x3 Hilbert Matrix:
+            1           0,5  0,3333333333
+          0,5  0,3333333333          0,25
+ 0,3333333333          0,25           0,2
+Computed determinant of a 3x3 square Hilbert matrix is: 0,000462963
+The correct value should be: 0,000462962962962963
+```
+
 
 
 ## Obecné principy fungování knihovny
-- Všechny funkce zachovávají původní stav matice, t.j výsledek je vždy vrácen a je nutno ho přiřadit.
+- Všechny funkce zachovávají původní stav matice, tj. výsledek je vždy vrácen a je nutno ho přiřadit.
 - Funkce mohou (a dělají to často) vyvolávat chyby. Ty by neměly být řešeny, nýbrž by jim mělo být čištěním vstupů být předcházeno!
 
 ## Modul RealMatrix
@@ -110,3 +178,4 @@
            1. Řádku s dvěma hodnotami reprezentujícími výšku a šířku matice
            2. Řádkově oddělenými hodnotami matice, které jsou na řádku odděleny mezerou
     
+
