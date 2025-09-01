@@ -7,13 +7,18 @@
 
 ## Příklad fungování knihovny
 
+Zde je příklad využití knihovny, kde je nejprve vytvořena Hilbertova matice, na které je demonstrováno použití QR rozkladu obdelníkové matice.
+Dále je ukázáno "ořezání" této matice do čtvercové podoby, na které lze ukázat výpočet determinantu.
+
 ```csharp
         static void Example()
         {
+            // Nastavení přesnosti výpočtu na 10. desetinných míst
             Algorithms.Precision = 10;
         
             (int height, int width) = (3, 5);
 
+            // Inicializace dat pro Hilbertovu matici
             double[,] Hilbert = new double[height, width];
             for (int i = 0; i < height; i++)
             {
@@ -23,11 +28,13 @@
                 }
             }
 
+            // Tvorba objektu Realmatrix z existujících dat
             RealMatrix HilbertMatrix = RealMatrix.From(Hilbert);
 
             Console.WriteLine("The original Hilbert Matrix:");
             HilbertMatrix.Print();
             Console.WriteLine();
+            // Výpočet faktorů Q,R rozkladu matice
             (RealMatrix Q, RealMatrix R) = Algorithms.QR(HilbertMatrix);
             
             Q.Print();
@@ -37,10 +44,12 @@
             (Q * R).Print();
             Console.WriteLine();
 
+            // Demonstrace extrahování podmatic
             RealMatrix SquareHilbert = HilbertMatrix.SubMatrix(1, 3, 1, 3);
             Console.WriteLine("Extracted 3x3 Hilbert Matrix:");
             SquareHilbert.Print();
 
+            // Výpočet determinantu ze čtvercové matice
             Console.WriteLine($"Computed determinant of a 3x3 square Hilbert matrix is: {Algorithms.Determinant(SquareHilbert)}");
             Console.WriteLine($"The correct value should be: {1.0 / 2160}");
 
@@ -178,4 +187,5 @@ The correct value should be: 0,000462962962962963
            1. Řádku s dvěma hodnotami reprezentujícími výšku a šířku matice
            2. Řádkově oddělenými hodnotami matice, které jsou na řádku odděleny mezerou
     
+
 
