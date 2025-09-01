@@ -24,7 +24,7 @@
   2. Pokud algoritmus efektivní není, měl by být přepsán s ohledem na momentální vizi uvedenou v tabulce, tento případ je značem písmenem **R**.
 
 ## Alternativní řešení a diskuse volby algoritmů
-K některým z řešených problémů lze přistupovat i jiným způsobem. Zde jsou vyjmenované některé z nich. K výpočtu norem je používán naivní výpočet přepon trojúhelníku. Ten lze nahradit chytřejším výpočtem, který využívá škálování prvků. Ten je sice o něco náročnější výpočetně a paměťově, ale poskytuje stabilní výpočet i v okrajových případech. K výpočtu determinantu je možné místo LU rozkladů použít víceméně výpočetní složitostí ekvivalentní  
+K některým z řešených problémů lze přistupovat i jiným způsobem. Zde jsou vyjmenované některé z nich. K výpočtu norem je používán naivní výpočet přepon trojúhelníku. Ten lze nahradit chytřejším výpočtem, který využívá škálování prvků. Ten je sice o něco náročnější výpočetně a paměťově, ale poskytuje stabilní výpočet i v okrajových případech. K výpočtu determinantu je možné místo LU rozkladů použít víceméně výpočetní složitostí ekvivalentní
 Gaussovou eliminací. Stejně tak lze tento postup použít u řešení SLR, které momentálně spoléhají na maticové inverzy. Gaussova eliminace by v tomto případě umožňovala algoritmus rozšířit i pro jiné typy matic.  
 Základní metoda QR algoritmu je založena na principu Householderových reflexí, které jsou v momentální formě explicitně konstruovány. Je možné algoritmus přepsat a konstruovat je implicitně, čímž by mělo být dosaženo podstateného zrychlení chodu algoritmu.  
 Algoritmus na výpočet vlastních čísel využívá naivního teoretického postupu, který v některých případech selhává. Alternativní možností je použít algoritmus podobný, používající posuny a štěpení matic. To by poskytlo mimo jiné i podstatné zrychlení výpočtů. Nevýhodou tohoto postupu by bylo, že by se musela přidat zásadní podpora komplexních čísel.
@@ -34,7 +34,9 @@ Knihovna vznikla postupným rozšiřování funkčnosti v tématických vrstvác
 V momentě, kdy má být přidána nová funkčnost, nebo stávající být upravena, je vhodné pokračovat od nejnižších vrstev k nejvyšším. Tj. pokud lze vylepšit základní funkčnost, je to preferováno oproti specifickým úpravám vyšších vrstev.  
 Dalším logickým krokem rozšíření knihovny je (krom oprav stávajících algoritmů) implementace Gaussovy eliminace, která by následně měla být využita k implementaci alternativních verzí algoritmů zmíněných v sekci výše. Dále je vhodné vylepšit algoritmus na výpočet vlastních čísel, se kterým by měla být přidána podpora komplexních čísel, a to v takové formě, která umožňuje v budoucnosti plynulý přechod k maticím, které obsahují i komplexní složky.  
 
-**Testy** jsou důležitou součástí procesu vývoje. Neprocházející testy by měly být první věcí, která je v daný moment řešena, jelikož značí závažnou vadu v fungování programu. Vždy po přidání nové funkčnosti by měla být přidána alespoň základní sada pseudo-náhodných testů ověřující její správnost. Stejně tak při rozšiřování procedur stávajících je doporučeno staré testy rozšířit. Testy by měly být navíc, krom rozdělení podle testovaného modulu, být logicky sdružovány s dalšímy testy s podobnou funkčností.
+**Testy** jsou důležitou součástí procesu vývoje. Neprocházející testy by měly být první věcí, která je v daný moment řešena, jelikož značí závažnou vadu v fungování programu. Vždy po přidání nové funkčnosti by měla být přidána alespoň základní sada pseudo-náhodných testů ověřující její správnost. Stejně tak při rozšiřování procedur stávajících je doporučeno staré testy rozšířit. Testy by měly být navíc, krom rozdělení podle testovaného modulu, být logicky sdružovány s dalšímy testy s podobnou funkčností.  
+Stávající testy momentálně pokrývají tvoření obecně známých matic (nulové, jednotkové, elementární vektory...), tvoření specifických matic (z existujících dat, z dat na disku), modifikaci matic (extrahování řádků, sloupců, násobení po členech, vkládání matic do druhé...) a dostupné algoritmy, rozklady (LU, QR), počítání inverzních matic a počítání vlastností matic (vlastní čísla).
+
 
 ### Tabulka implementací vybraných algoritmů
 | Algoritmus | Stav | Popis |
@@ -53,3 +55,4 @@ Dalším logickým krokem rozšíření knihovny je (krom oprav stávajících a
 
 ## Závěr
 V současném podání umožňuje knihovna pracovat s maticemi v rovině jednoduchých výpočtů a základní experimentace. Pro laické publikum je tato knihovna v praxi dostačující. To neznamená, že je z daleka perfektní. Mnoho algoritmů je implementováno příliš teoretickými postupy, které ve složitějších případech selhávají kvůli vysoké výpočetní složitosti. Je mým očekáváním, že s každou novou verzí knihovny budou tyto algoritmy postupně nahrazovány výpočetně vhodnějšími variantami.
+
